@@ -31,7 +31,7 @@
 
 **Код MainActivity.java (фрагмент):**
 
-```java
+```
 private int[] images = {R.drawable.image1, R.drawable.image2, R.drawable.image3, R.drawable.image4};
 private int currentIndex = 0;
 private Timer slideshowTimer;
@@ -63,4 +63,59 @@ private void toggleSlideshow() {
 
 ### Задание 3. Воспроизведение видео
 Создана `VideoActivity` с разметкой, содержащей VideoView, SeekBar для громкости и кнопку «Воспроизвести». Реализовано управление громкостью через AudioManager, добавлены стандартные элементы управления (MediaController).
+```
+public class VideoActivity extends AppCompatActivity {
+    private VideoView videoView;
+    private SeekBar volumeSeekBar;
+    private AudioManager audioManager;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_video);
+
+        videoView = findViewById(R.id.videoView);
+        volumeSeekBar = findViewById(R.id.volumeSeekBar);
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+        // Настройка громкости через SeekBar
+        int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        volumeSeekBar.setMax(maxVolume);
+        volumeSeekBar.setProgress(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
+
+        volumeSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0);
+            }
+            // ... пустые методы onStartTrackingTouch, onStopTrackingTouch
+        });
+
+        // Медиаконтроллер для управления воспроизведением
+        MediaController mediaController = new MediaController(this);
+        mediaController.setAnchorView(videoView);
+        videoView.setMediaController(mediaController);
+
+        // Установка источника видео из res/raw
+        String videoPath = "android.resource://" + getPackageName()
+                + "/" + R.raw.video_sample;
+        videoView.setVideoURI(Uri.parse(videoPath));
+
+        // Запуск по кнопке
+        findViewById(R.id.btnPlayVideo).setOnClickListener(v -> videoView.start());
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        videoView.stopPlayback(); // освобождение ресурсов
+    }
+}
+```
+
+![Структура ресурсов](media/3.png)
+
+**Рисунок 3** —  Главный экран с изображением и кнопками управления
+
+
 
