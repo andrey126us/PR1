@@ -53,9 +53,11 @@ private void toggleSlideshow() {
                 runOnUiThread(() -> showNextImage());
             }
         }, 0, 2000);
+
     }
 }
 
-![Структура ресурсов](media/2.png)
+![Структура ресурсов](media/1.png)
 
-**Рисунок 2** —  Главный экран с изображением и кнопками управления
+**Рисунок 1** — Добавленные медиафайлы в `res/raw` и `res/drawable`
+
