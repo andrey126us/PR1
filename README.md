@@ -63,6 +63,7 @@ private void toggleSlideshow() {
 
 ### Задание 3. Воспроизведение видео
 Создана `VideoActivity` с разметкой, содержащей VideoView, SeekBar для громкости и кнопку «Воспроизвести». Реализовано управление громкостью через AudioManager, добавлены стандартные элементы управления (MediaController).
+Класс VideoActivity.java (ключевые части)
 ```
 public class VideoActivity extends AppCompatActivity {
     private VideoView videoView;
@@ -117,5 +118,117 @@ public class VideoActivity extends AppCompatActivity {
 
 **Рисунок 3** —  Главный экран с изображением и кнопками управления
 
+### Задание 4. Фоновое аудио с приоритетами
+В MainActivity при старте приложения запускается фоновое аудио через MediaPlayer с зацикливанием. При переходе в VideoActivity аудио ставится на паузу, а после остановки видео – возобновляется с задержкой 1.5 секунды.
+```
+// Инициализация и запуск фонового аудио (в onCreate)
+mediaPlayer = MediaPlayer.create(this, R.raw.audio_sample);
+mediaPlayer.setLooping(true);   // зацикливание
+mediaPlayer.start();
+
+// Пауза при переходе к видео
+btnOpenVideo.setOnClickListener(v -> {
+    if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+        mediaPlayer.pause();
+        isAudioPausedForVideo = true;   // запоминаем, что пауза — для видео
+    }
+    startActivity(new Intent(MainActivity.this, VideoActivity.class));
+});
+
+// Возобновление аудио при возврате из видео (onResume)
+@Override
+protected void onResume() {
+    super.onResume();
+    if (isAudioPausedForVideo && mediaPlayer != null && !mediaPlayer.isPlaying()) {
+        handler.postDelayed(() -> {
+            if (mediaPlayer != null && !mediaPlayer.isPlaying()) {
+                mediaPlayer.start();
+                isAudioPausedForVideo = false;
+            }
+        }, 1500);  // задержка 1.5 секунды
+    }
+}
+
+// Освобождение ресурсов при уничтожении Activity
+@Override
+protected void onDestroy() {
+    super.onDestroy();
+    if (mediaPlayer != null) {
+        mediaPlayer.stop();
+        mediaPlayer.release();
+        mediaPlayer = null;
+    }
+}
+```
+![Структура ресурсов](media/4.png)
+
+**Рисунок 4** —  Фоновое аудио с приоритетами
+
+## Контрольные вопросы (Практическая работа №8)
+
+### 1. Какие типы ресурсов существуют в Android? Для чего предназначены папки drawable, raw, values?
+
+- drawable – графические ресурсы (PNG, JPG, XML-фигуры, селекторы, анимации).  
+- raw – произвольные файлы в исходном виде (аудио, видео, текстовые файлы). Доступ через `R.raw.имя`.  
+- values – ресурсы, определённые в XML (строки `strings.xml`, цвета `colors.xml`, размеры `dimens.xml`, стили, массивы).  
+
+---
+
+### 2. Как добавить изображение в приложение и отобразить его в ImageView двумя способами (из ресурсов и из файловой системы)?
+
+**Из ресурсов drawable:**  
+```
+ImageView imageView = findViewById(R.id.imageView);
+imageView.setImageResource(R.drawable.my_image);
+```
+Из файловой системы (внешнее хранилище):
+
+```
+File imgFile = new File(Environment.getExternalStorageDirectory(), "image.png");
+Bitmap bitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+imageView.setImageBitmap(bitmap);
+```
+### 3. Опишите жизненный цикл MediaPlayer. Какие методы необходимо вызвать для воспроизведения аудиофайла из ресурсов?
+Жизненный цикл:
+Idle → Initialized → Preparing → Prepared → Started → Paused / Stopped → Released.
+
+Для воспроизведения из ресурсов:
+```
+MediaPlayer mp = MediaPlayer.create(context, R.raw.audio_sample); // сам вызывает prepare()
+mp.start(); // переход в Started
+// mp.pause(), mp.stop(), mp.release() при завершении
+```
+### 4. Для чего используется класс AudioManager? Как получить его экземпляр и изменить громкость?
+AudioManager управляет громкостью, режимами звука, переключением аудиоустройств.
+Получение экземпляра: `AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);`
+Изменение громкости аудиопотока (например, музыки):
+```
+int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+am.setStreamVolume(AudioManager.STREAM_MUSIC, желаемое_значение, 0);
+```
+### 5. Что такое VideoView и MediaController? Как их использовать для создания простого видеоплеера?
+VideoView – виджет для отображения видео, содержит встроенный MediaPlayer и управляет поверхностью.
+
+MediaController – стандартные элементы управления (play/pause, перемотка, прогресс-бар).
+Пример:
+```
+VideoView videoView = findViewById(R.id.videoView);
+videoView.setVideoURI(Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.video_sample));
+MediaController mc = new MediaController(this);
+mc.setAnchorView(videoView);
+videoView.setMediaController(mc);
+videoView.start();
+```
+
+### 6. Почему при обновлении UI (например, SeekBar) из TimerTask нужно использовать runOnUiThread()?
+TimerTask выполняется в фоновом потоке. Обновлять UI можно только из главного (UI) потока, иначе возникнет исключение CalledFromWrongThreadException.
+runOnUiThread() переключает код в UI-поток.
+
+### 7. Как сделать, чтобы аудиофайл воспроизводился бесконечно (зацикливался)?
+`mediaPlayer.setLooping(true);`
+После окончания воспроизведения звук автоматически начнётся заново.
+### 8. Какие разрешения необходимы для доступа к медиафайлам на внешнем хранилище в разных версиях Android?
+Android 5–12:	READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE (для записи)
+Android 13+: READ_MEDIA_IMAGES, READ_MEDIA_AUDIO, READ_MEDIA_VIDEO (раздельно для каждого типа)
 
 
