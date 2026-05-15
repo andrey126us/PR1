@@ -1,4 +1,4 @@
-# Практическая работа №9: Работа с меню в Android
+# Практическая работа №10: Использование аппаратных возможностей. Разрешения, уведомления, вибрация, камера
 
 **Выполнил:**  
 Саньков Андрей Александрович  
@@ -9,176 +9,173 @@
 
 ## Цель работы
 
-Изучить способы создания и обработки событий от различных типов меню в Android: главного меню (OptionsMenu) и контекстного меню (ContextMenu). Научиться динамически изменять интерфейс приложения с помощью пунктов меню.
+Изучить механизм работы с разрешениями в Android, научиться создавать уведомления (Notification), управлять вибрацией устройства, а также получать доступ к камере для предварительного просмотра изображения.
 
 ---
 
 ## Ход работы
 
-### Задание 1. Создание проекта и подготовка интерфейса
+### Задание 1. Создание проекта и подготовка манифеста
 
-Создан проект `MenuLab`. В `activity_main.xml` размещены ImageView (для отображения картинок) и поясняющий TextView. В папку `res/drawable` добавлены три изображения: image1.png`, image2.png, image3.png.
-
-**Скриншот интерфейса:**  
+Создан проект HardwareLab с шаблоном Empty Views Activity. В файл AndroidManifest.xml добавлены разрешения: CAMERA, VIBRATE и WRITE_EXTERNAL_STORAGE . Разработан интерфейс главного экрана (activity_main.xml), содержащий четыре кнопки: «Напоминание о паре», «Вибрация», «Фото доски», «Учёт посещаемости».
 
 ![](media/1.png)
 
-**Рисунок 1** — Интрефейс главной страницы
+**Рисунок 1** — Добавление разрешений и подготовка интерфейса
 
----
+### Задание 2. Запрос разрешений во время выполнения
 
-### Задание 2. Создание OptionsMenu (главное меню) – смена изображения
+Реализован запрос опасного разрешения CAMERA для доступа к камере. В методе checkCameraPermission() проверяется текущее состояние разрешения с помощью ContextCompat.checkSelfPermission(). Если разрешение не предоставлено, выводится пояснение через ActivityCompat.shouldShowRequestPermissionRationale() (опционально) и отправляется запрос через ActivityCompat.requestPermissions(). Результат обрабатывается в колбэке onRequestPermissionsResult(): при успехе вызывается метод openCamera(), при отказе пользователь информируется сообщением. Вызов проверки назначен на кнопку «Фото доски»
 
-**Описание:**  
-Создан файл `res/menu/main_menu.xml` с тремя пунктами для выбора изображения. В `MainActivity` переопределены `onCreateOptionsMenu()` и `onOptionsItemSelected()`. При выборе пункта меняется картинка в `ImageView`.
-
-**Фрагмент кода main_menu.xml:**
-```
-<?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:id="@+id/action_img1" android:title="Изображение 1" />
-    <item android:id="@+id/action_img2" android:title="Изображение 2" />
-    <item android:id="@+id/action_img3" android:title="Изображение 3" />
-</menu>
-```
-Код из MainActivity.java:
-```
-// Загрузка главного меню из XML
-@Override
-public boolean onCreateOptionsMenu(Menu menu) {
-    getMenuInflater().inflate(R.menu.main_menu, menu);
-    return true;
-}
-
-// Обработка выбора пункта меню
-@Override
-public boolean onOptionsItemSelected(MenuItem item) {
-    int id = item.getItemId();
-
-    if (id == R.id.action_image1) {
-        imageView.setImageResource(images[0]);
-        return true;
-    } else if (id == R.id.action_image2) {
-        imageView.setImageResource(images[1]);
-        return true;
-    } else if (id == R.id.action_image3) {
-        imageView.setImageResource(images[2]);
-        return true;
-    }
-    return super.onOptionsItemSelected(item);
-}
-```
 ![](media/2.png)
 
-**Рисунок 2** — смена изображения
+**Рисунок 2** — Запрос разрешения на камеру во время выполнения
 
-### Задание 3. Создание ContextMenu
-Для ImageView зарегистрировано контекстное меню через registerForContextMenu(). Меню создано динамически в onCreateContextMenu() с двумя пунктами: «Повернуть по часовой стрелке» и «Повернуть против часовой стрелки». При выборе угол поворота ImageView увеличивается или уменьшается на 90 градусов.
+### Задание 3: Создание уведомления
+Реализована отправка уведомлений с напоминанием о предстоящей паре. Для Android 13 и выше добавлен запрос разрешения POST_NOTIFICATIONS — при первом нажатии кнопки «Напоминание о паре» пользователь подтверждает разрешение. Для Android 8+ создан канал «Напоминания о парах». Само уведомление содержит заголовок и текст, автоматически закрывается при нажатии. Функция проверена на эмуляторе — после предоставления разрешения уведомление появляется в шторке.
+Код уведомлений из MainActivity.java:
+```
+// Константа для запроса разрешения уведомлений (Android 13+)
+private static final int REQUEST_CODE_NOTIFICATION = 101;
 
-Регистрация View в onCreate:
-```
-imageView = findViewById(R.id.imageView);
-registerForContextMenu(imageView);
-```
-Создание контекстного меню (динамическое):
-```
-@Override
-public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
-    super.onCreateContextMenu(menu, v, menuInfo);
-    menu.setHeaderTitle("Поворот изображения");
-    menu.add(0, 1, 0, "По часовой стрелке");
-    menu.add(0, 2, 1, "Против часовой стрелки");
-}
-```
-Обработка выбора:
-```
-@Override
-public boolean onContextItemSelected(MenuItem item) {
-    switch (item.getItemId()) {
-        case 1:
-            imageView.setRotation(imageView.getRotation() + 90);
-            return true;
-        case 2:
-            imageView.setRotation(imageView.getRotation() - 90);
-            return true;
+// Проверка и запрос разрешения перед отправкой
+private void checkAndSendNotification() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) {
+            sendReminderNotification();
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    REQUEST_CODE_NOTIFICATION);
+        }
+    } else {
+        sendReminderNotification();
     }
-    return super.onContextItemSelected(item);
+}
+
+// Создание канала уведомлений 
+private void createNotificationChannel() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        NotificationChannel channel = new NotificationChannel(
+                "reminder_channel", "Напоминания о парах",
+                NotificationManager.IMPORTANCE_DEFAULT);
+        channel.setDescription("Уведомления о начале занятий");
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        manager.createNotificationChannel(channel);
+    }
+}
+
+// Отправка уведомления
+@SuppressLint("MissingPermission")
+private void sendReminderNotification() {
+    createNotificationChannel();
+    NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "reminder_channel")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Напоминание о паре")
+            .setContentText("Через 10 минут начнётся пара по Математике")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true);
+    NotificationManagerCompat.from(this).notify(1, builder.build());
 }
 ```
 ![](media/3.png)
 
-**Рисунок 3** — контекстное меню
+**Рисунок 3** — Создание уведомления
 
-### Задание 4. Объединение и тестирование
-В рамках итоговой проверки приложение было запущено на эмуляторе.
+### Задание 4. Управление вибрацией
+Добавлена возможность вызова вибрации устройства. При нажатии кнопки «Вибрация» проверяется доступность вибромотора. Используется VibrationEffect.createWaveform() с паттерном [0, 500, 1000, 500] (вибрация 500 мс, пауза, снова вибрация). Разрешение VIBRATE предоставляется системой автоматически, запрос не требуется.
+Основной блок кода:
+```
+private void vibrate() {
+    Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+    if (vibrator != null && vibrator.hasVibrator()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createWaveform(
+                    new long[]{0, 500, 1000, 500}, -1));
+        } else {
+            vibrator.vibrate(new long[]{0, 500, 1000, 500}, -1);
+        }
+    }
+}
 
-Главное меню (OptionsMenu) вызывается нажатием на три точки в ActionBar и содержит три пункта: «Изображение 1», «Изображение 2», «Изображение 3». При выборе любого из них изображение в ImageView корректно меняется на соответствующее.
+// Подключение кнопки
+Button btnVibrate = findViewById(R.id.btnVibrate);
+btnVibrate.setOnClickListener(v -> vibrate());
+```
 
-Контекстное меню вызывается долгим нажатием на то же ImageView. Заголовок «Поворот изображения» и пункты «По часовой стрелке» / «Против часовой стрелки» отображаются, при выборе изображение поворачивается на 90° в заданном направлении.
+### Задание 5. Предварительный просмотр камеры
+Создана активность CameraActivity с SurfaceView для отображения потока с камеры. Реализованы колбэки SurfaceHolder.Callback: при создании поверхности открывается задняя камера (Camera.open()), при изменении запускается startPreview(), при уничтожении поверхности камера освобождается. Разрешение CAMERA запрашивается во время выполнения перед запуском активности. Переход к камере выполняется по нажатию кнопки «Фото доски» из главного меню.
 
-Оба меню работают без конфликтов, интерфейс не блокируется, переходов между экранами не требуется — всё реализовано в одной Activity.
+![](media/4.png)
 
-Таким образом, все требования задания выполнены в полном объёме.
+**Рисунок 4** — Предварительный просмотр камеры
+
 ## Контрольные вопросы
-### 1. Какие типы меню существуют в Android? Опишите их назначение.
-OptionsMenu — главное меню приложения, вызывается нажатием кнопки в ActionBar (три точки). Используется для глобальных действий (настройки, смена режимов, выход).
+### 1. В чём разница между нормальными и опасными разрешениями? Приведите примеры.
 
-ContextMenu — контекстное меню, появляется при долгом нажатии на элемент интерфейса. Предоставляет действия, специфичные для этого элемента.
+Нормальные разрешения не затрагивают конфиденциальность пользователя, предоставляются автоматически при установке (например, INTERNET, VIBRATE).
 
-PopupMenu — всплывающее меню, привязанное к конкретному View и появляющееся по обычному нажатию (например, на кнопку).
+Опасные разрешения дают доступ к личным данным или управлению устройства (камера, контакты, местоположение). Начиная с Android 6.0, их необходимо запрашивать во время выполнения, и пользователь может отказать. Примеры: CAMERA, ACCESS_FINE_LOCATION, READ_CONTACTS, POST_NOTIFICATIONS (Android 13+).
 
-### 2. Как создать главное меню (OptionsMenu)? Какие методы необходимо переопределить в Activity?
-Создать XML-файл в res/menu/ с описанием пунктов.
+### 2. Как запросить опасное разрешение во время выполнения приложения? Опишите последовательность действий.
 
-Переопределить два метода в Activity:
+Проверить, есть ли уже разрешение: ContextCompat.checkSelfPermission(context, permission) == PERMISSION_GRANTED.
 
-onCreateOptionsMenu(Menu menu) — вызвать getMenuInflater().inflate(R.menu.имя_файла, menu) и вернуть true.
+Если нет — при необходимости показать обоснование через ActivityCompat.shouldShowRequestPermissionRationale().
 
-onOptionsItemSelected(MenuItem item) — обработать выбор пункта по его id и вернуть true, если событие обработано.
+Запросить разрешение: ActivityCompat.requestPermissions(activity, new String[]{permission}, requestCode).
 
-### 3. Для чего используется атрибут app:showAsAction? Какие значения он может принимать?
-Атрибут определяет, будет ли пункт меню отображаться непосредственно в ActionBar или скрыт в выпадающем меню (три точки).
-Значения:
+Обработать результат в колбэке onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) — проверить grantResults[0] == PERMISSION_GRANTED.
 
-never — всегда в выпадающем меню.
+### 3. Для чего нужен NotificationChannel в Android 8.0 и выше?
 
-ifRoom — показывать в ActionBar, если хватает места, иначе скрыть.
+NotificationChannel позволяет группировать уведомления по категориям и даёт пользователю возможность настраивать поведение каждой категории (звук, вибрация, важность, показ на экране блокировки). Приложение обязано создать хотя бы один канал, иначе уведомление не отобразится на API 26+.
 
-always — всегда показывать в ActionBar (не рекомендуется из-за возможной нехватки места).
+### 4. Как создать простое уведомление и отобразить его?
 
-### 4. Как зарегистрировать View для контекстного меню? В каком методе это обычно делается?
-Вызвать метод registerForContextMenu(view). Обычно регистрация выполняется в методе onCreate Activity после setContentView и findViewById.
+Создать канал (для API 26+): NotificationChannel channel = new NotificationChannel(id, name, importance); manager.createNotificationChannel(channel);
+
+Построить уведомление через NotificationCompat.Builder(context, channelId):
+
+Установить иконку setSmallIcon(), заголовок setContentTitle(), текст setContentText(), приоритет, авто‑закрытие.
+
+Отправить: NotificationManagerCompat.from(context).notify(id, builder.build());.
+
+### 5. Какие методы класса Vibrator используются для создания вибрации? Как создать вибрацию с заданным паттерном?
+
+Простая вибрация заданной длительности: vibrator.vibrate(milliseconds).
+
+Вибрация по паттерну (устаревший способ): vibrator.vibrate(long[] pattern, int repeat).
+
+На API 26+ рекомендуется VibrationEffect.createWaveform(long[] timings, int repeat) и вызов vibrator.vibrate(vibrationEffect).
+Пример паттерна: new long[]{0, 500, 1000, 500} — без задержки, вибрация 500 мс, пауза 1 с, снова вибрация 500 мс. Параметр -1 означает без повторов.
+
+### 6. Как получить доступ к камере для предварительного просмотра? Какие классы для этого используются?
+
+Используются классы Camera (устаревший) или Camera2. В работе применялся Camera.
+
+Порядок: создать SurfaceView, получить SurfaceHolder и добавить колбэк SurfaceHolder.Callback.
+
+В surfaceCreated() открыть камеру Camera.open(), установить setPreviewDisplay(holder).
+
+В surfaceChanged() запустить startPreview().
+
+В surfaceDestroyed() остановить превью и освободить камеру release(). Обязательно объявить разрешение CAMERA и запросить его во время выполнения.
+
+### 7. Что произойдёт, если попытаться использовать опасное разрешение без его запроса во время выполнения на Android 6.0+?
+
+Будет выброшено исключение SecurityException, и приложение аварийно завершится (краш). Поэтому перед выполнением операции, требующей опасного разрешения, нужно обязательно проверить и при необходимости запросить его.
+
+### 8. Как проверить, есть ли у приложения определённое разрешение в данный момент?
+
+Вызвать ContextCompat.checkSelfPermission(context, Manifest.permission.ИМЯ_РАЗРЕШЕНИЯ) и сравнить результат с PackageManager.PERMISSION_GRANTED. Например:
 ```
-imageView = findViewById(R.id.imageView);
-registerForContextMenu(imageView);
-```
-### 5. В чём разница между методами onCreateContextMenu и onContextItemSelected?
-onCreateContextMenu — вызывается при формировании контекстного меню перед его показом. Здесь создаются пункты меню (заголовок, добавление элементов).
-
-onContextItemSelected — вызывается, когда пользователь выбрал один из пунктов контекстного меню. Здесь выполняется нужное действие.
-
-### 6. Как создать контекстное меню динамически (программно), без использования XML-ресурса?
-В методе onCreateContextMenu использовать метод menu.add(groupId, itemId, order, title). Например:
-```
-menu.add(0, 1, 0, "По часовой стрелке");
-menu.add(0, 2, 1, "Против часовой стрелки");
-```
-Где 1 и 2 — идентификаторы, используемые позже в onContextItemSelected.
-
-### 7. Что возвращают методы onOptionsItemSelected и onContextItemSelected? Что означает возврат true?
-Оба метода возвращают boolean.
-
-true означает, что событие полностью обработано и не должно передаваться дальше по цепочке обработки.
-
-false (или вызов super) передаёт событие суперклассу, что может привести к дополнительным действиям или игнорированию.
-
-### 8. Как определить, для какого именно элемента было вызвано контекстное меню, если зарегистрировано несколько View?
-В методе onCreateContextMenu передаётся параметр View v — это тот самый View, на котором было выполнено долгое нажатие. Можно сравнить его с ранее сохранёнными объектами или использовать v.getId() для проверки, например:
-```
-if (v.getId() == R.id.imageView) {
-    // меню для ImageView
-} else if (v.getId() == R.id.textView) {
-    // другое меню
+if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+        == PackageManager.PERMISSION_GRANTED) {
+    // разрешение есть
+} else {
+    // нужно запросить
 }
 ```
 
