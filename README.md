@@ -54,7 +54,7 @@ btnCalculate.setOnClickListener(v -> {
 **Рисунок 3** — Выполнение вычислений в отдельном потоке
 Фрагмент кода:
 
-```
+```java
 btnCalculateThread.setOnClickListener(v -> {
     new Thread(() -> {
         longCalculation();
@@ -69,7 +69,7 @@ btnCalculateThread.setOnClickListener(v -> {
 **Рисунок 4** — Загрузка изображения из интернета с отображением прогресса
 Добавлено разрешение INTERNET в манифест. Реализована загрузка изображения по URL в фоновом потоке с имитацией прогресса (обновление ProgressBar). После загрузки картинка устанавливается в ImageView.
 Фрагмент кода:
-```
+```java
 private Bitmap loadImage(String urlString) throws IOException {
     URL url = new URL(urlString);
     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -113,7 +113,7 @@ btnLoadImage.setOnClickListener(v -> {
 
 Часть 1. Вычисления в фоновом потоке
 Генерация массива случайных вещественных чисел заданного размера, расчёт требуемых характеристик и обновление индикатора прогресса выполняются в отдельном потоке. Для возврата результатов используется runOnUiThread().
-```
+```java
 new Thread(() -> {
     double[] array = new double[size];
     Random random = new Random();
@@ -150,7 +150,7 @@ new Thread(() -> {
 ```
 Часть 2. Загрузка изображений с прогрессом
 Изображения (5 штук) загружаются последовательно из заранее заданных URL. Каждое успешно загруженное изображение сразу добавляется в LinearLayout как новый ImageView. Общий прогресс (ProgressBar) показывает долю загруженных изображений.
-```
+```java
 new Thread(() -> {
     String[] urls = {"https://picsum.photos/id/1/200/200", ...};
     for (int i = 0; i < urls.length; i++) {
