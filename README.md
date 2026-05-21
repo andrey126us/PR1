@@ -61,10 +61,24 @@ SettingsActivity — создана с использованием шаблон
         app:summary="Включить звуковые эффекты"
         app:defaultValue="true" />
 </PreferenceScreen>
-![](media/2.png)
 ```
 
+![](media/2.png)
 **Рисунок 2** —  Создание класс SettingsActivity
+
+## 2.2 GameActivity
+GameActivity — создана по шаблону Empty Views Activity.
+На экране будет размещён игровой процесс (пока заглушка с текстом «Здесь будет игра Сапёр»)
+
+![](media/3.png)
+**Рисунок 3** —  Создание класс GameActivity
+
+# 2.3 - RecordsActivity
+RecordsActivity — также по шаблону Empty Views Activity.
+Предназначена для отображения рекордов (заглушка «Рекорды пока отсутствуют»).
+
+![](media/4.png)
+**Рисунок 4** —  Создание класс RecordsActivity
 
 
 
