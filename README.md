@@ -1,4 +1,5 @@
-# Практическая работа №10: Использование аппаратных возможностей. Разрешения, уведомления, вибрация, камера
+
+# Практическая работа №11: Многопоточность в Android. Асинхронная загрузка данных
 
 **Выполнил:**  
 Саньков Андрей Александрович  
@@ -9,173 +10,163 @@
 
 ## Цель работы
 
-Изучить механизм работы с разрешениями в Android, научиться создавать уведомления (Notification), управлять вибрацией устройства, а также получать доступ к камере для предварительного просмотра изображения.
+Изучить принципы многопоточного программирования в Android. Научиться выносить длительные операции (вычисления, загрузка данных из сети) в фоновые потоки, чтобы избежать блокировки пользовательского интерфейса. Освоить способы обновления UI из фоновых потоков.
 
 ---
 
 ## Ход работы
 
-### Задание 1. Создание проекта и подготовка манифеста
+### Задание 1. Создание проекта и подготовка интерфейса
 
-Создан проект HardwareLab с шаблоном Empty Views Activity. В файл AndroidManifest.xml добавлены разрешения: CAMERA, VIBRATE и WRITE_EXTERNAL_STORAGE . Разработан интерфейс главного экрана (activity_main.xml), содержащий четыре кнопки: «Напоминание о паре», «Вибрация», «Фото доски», «Учёт посещаемости».
+Создан проект `MultithreadingLab`. В `activity_main.xml` размещены три кнопки (демонстрация зависания, вычисления в потоке, загрузка изображения), `ProgressBar` и `ImageView`.
 
 ![](media/1.png)
 
-**Рисунок 1** — Добавление разрешений и подготовка интерфейса
+**Рисунок 1** — интерфейс
 
-### Задание 2. Запрос разрешений во время выполнения
 
-Реализован запрос опасного разрешения CAMERA для доступа к камере. В методе checkCameraPermission() проверяется текущее состояние разрешения с помощью ContextCompat.checkSelfPermission(). Если разрешение не предоставлено, выводится пояснение через ActivityCompat.shouldShowRequestPermissionRationale() (опционально) и отправляется запрос через ActivityCompat.requestPermissions(). Результат обрабатывается в колбэке onRequestPermissionsResult(): при успехе вызывается метод openCamera(), при отказе пользователь информируется сообщением. Вызов проверки назначен на кнопку «Фото доски»
+### Задание 2. Демонстрация «зависания» интерфейса
+
+Реализован метод `longCalculation()` с тяжёлым циклом. При нажатии на кнопку «Вычислить (без потоков)» метод вызывается прямо в UI-потоке – интерфейс блокируется на несколько секунд.
 
 ![](media/2.png)
 
-**Рисунок 2** — Запрос разрешения на камеру во время выполнения
+**Рисунок 2** — «зависания» интерфейса
 
-### Задание 3: Создание уведомления
-Реализована отправка уведомлений с напоминанием о предстоящей паре. Для Android 13 и выше добавлен запрос разрешения POST_NOTIFICATIONS — при первом нажатии кнопки «Напоминание о паре» пользователь подтверждает разрешение. Для Android 8+ создан канал «Напоминания о парах». Само уведомление содержит заголовок и текст, автоматически закрывается при нажатии. Функция проверена на эмуляторе — после предоставления разрешения уведомление появляется в шторке.
-Код уведомлений из MainActivity.java:
+**Фрагмент кода:**
+```java
+private void longCalculation() {
+    long result = 0;
+    for (long i = 0; i < 2_000_000_000L; i++) result += i;
+    Log.d(TAG, "Результат: " + result);
+}
+
+btnCalculate.setOnClickListener(v -> {
+    longCalculation();
+    Toast.makeText(this, "Вычисления завершены", Toast.LENGTH_SHORT).show();
+});
 ```
-// Константа для запроса разрешения уведомлений (Android 13+)
-private static final int REQUEST_CODE_NOTIFICATION = 101;
+### Задание 3. Выполнение вычислений в отдельном потоке
+При нажатии на кнопку «Вычислить (с потоком)» вычисления запускаются в фоновом потоке. После завершения Toast показывается через runOnUiThread() – интерфейс не блокируется.
 
-// Проверка и запрос разрешения перед отправкой
-private void checkAndSendNotification() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                == PackageManager.PERMISSION_GRANTED) {
-            sendReminderNotification();
-        } else {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.POST_NOTIFICATIONS},
-                    REQUEST_CODE_NOTIFICATION);
-        }
-    } else {
-        sendReminderNotification();
-    }
-}
-
-// Создание канала уведомлений 
-private void createNotificationChannel() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        NotificationChannel channel = new NotificationChannel(
-                "reminder_channel", "Напоминания о парах",
-                NotificationManager.IMPORTANCE_DEFAULT);
-        channel.setDescription("Уведомления о начале занятий");
-        NotificationManager manager = getSystemService(NotificationManager.class);
-        manager.createNotificationChannel(channel);
-    }
-}
-
-// Отправка уведомления
-@SuppressLint("MissingPermission")
-private void sendReminderNotification() {
-    createNotificationChannel();
-    NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "reminder_channel")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Напоминание о паре")
-            .setContentText("Через 10 минут начнётся пара по Математике")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setAutoCancel(true);
-    NotificationManagerCompat.from(this).notify(1, builder.build());
-}
-```
 ![](media/3.png)
 
-**Рисунок 3** — Создание уведомления
+**Рисунок 3** — Выполнение вычислений в отдельном потоке
+Фрагмент кода:
 
-### Задание 4. Управление вибрацией
-Добавлена возможность вызова вибрации устройства. При нажатии кнопки «Вибрация» проверяется доступность вибромотора. Используется VibrationEffect.createWaveform() с паттерном [0, 500, 1000, 500] (вибрация 500 мс, пауза, снова вибрация). Разрешение VIBRATE предоставляется системой автоматически, запрос не требуется.
-Основной блок кода:
 ```
-private void vibrate() {
-    Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-    if (vibrator != null && vibrator.hasVibrator()) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createWaveform(
-                    new long[]{0, 500, 1000, 500}, -1));
-        } else {
-            vibrator.vibrate(new long[]{0, 500, 1000, 500}, -1);
-        }
-    }
-}
-
-// Подключение кнопки
-Button btnVibrate = findViewById(R.id.btnVibrate);
-btnVibrate.setOnClickListener(v -> vibrate());
+btnCalculateThread.setOnClickListener(v -> {
+    new Thread(() -> {
+        longCalculation();
+        runOnUiThread(() -> Toast.makeText(MainActivity.this, "Вычисления завершены", Toast.LENGTH_SHORT).show());
+    }).start();
+});
 ```
-
-### Задание 5. Предварительный просмотр камеры
-Создана активность CameraActivity с SurfaceView для отображения потока с камеры. Реализованы колбэки SurfaceHolder.Callback: при создании поверхности открывается задняя камера (Camera.open()), при изменении запускается startPreview(), при уничтожении поверхности камера освобождается. Разрешение CAMERA запрашивается во время выполнения перед запуском активности. Переход к камере выполняется по нажатию кнопки «Фото доски» из главного меню.
+### Задание 4: Загрузка изображения из интернета с отображением прогресса
 
 ![](media/4.png)
 
-**Рисунок 4** — Предварительный просмотр камеры
-
-## Контрольные вопросы
-### 1. В чём разница между нормальными и опасными разрешениями? Приведите примеры.
-
-Нормальные разрешения не затрагивают конфиденциальность пользователя, предоставляются автоматически при установке (например, INTERNET, VIBRATE).
-
-Опасные разрешения дают доступ к личным данным или управлению устройства (камера, контакты, местоположение). Начиная с Android 6.0, их необходимо запрашивать во время выполнения, и пользователь может отказать. Примеры: CAMERA, ACCESS_FINE_LOCATION, READ_CONTACTS, POST_NOTIFICATIONS (Android 13+).
-
-### 2. Как запросить опасное разрешение во время выполнения приложения? Опишите последовательность действий.
-
-Проверить, есть ли уже разрешение: ContextCompat.checkSelfPermission(context, permission) == PERMISSION_GRANTED.
-
-Если нет — при необходимости показать обоснование через ActivityCompat.shouldShowRequestPermissionRationale().
-
-Запросить разрешение: ActivityCompat.requestPermissions(activity, new String[]{permission}, requestCode).
-
-Обработать результат в колбэке onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) — проверить grantResults[0] == PERMISSION_GRANTED.
-
-### 3. Для чего нужен NotificationChannel в Android 8.0 и выше?
-
-NotificationChannel позволяет группировать уведомления по категориям и даёт пользователю возможность настраивать поведение каждой категории (звук, вибрация, важность, показ на экране блокировки). Приложение обязано создать хотя бы один канал, иначе уведомление не отобразится на API 26+.
-
-### 4. Как создать простое уведомление и отобразить его?
-
-Создать канал (для API 26+): NotificationChannel channel = new NotificationChannel(id, name, importance); manager.createNotificationChannel(channel);
-
-Построить уведомление через NotificationCompat.Builder(context, channelId):
-
-Установить иконку setSmallIcon(), заголовок setContentTitle(), текст setContentText(), приоритет, авто‑закрытие.
-
-Отправить: NotificationManagerCompat.from(context).notify(id, builder.build());.
-
-### 5. Какие методы класса Vibrator используются для создания вибрации? Как создать вибрацию с заданным паттерном?
-
-Простая вибрация заданной длительности: vibrator.vibrate(milliseconds).
-
-Вибрация по паттерну (устаревший способ): vibrator.vibrate(long[] pattern, int repeat).
-
-На API 26+ рекомендуется VibrationEffect.createWaveform(long[] timings, int repeat) и вызов vibrator.vibrate(vibrationEffect).
-Пример паттерна: new long[]{0, 500, 1000, 500} — без задержки, вибрация 500 мс, пауза 1 с, снова вибрация 500 мс. Параметр -1 означает без повторов.
-
-### 6. Как получить доступ к камере для предварительного просмотра? Какие классы для этого используются?
-
-Используются классы Camera (устаревший) или Camera2. В работе применялся Camera.
-
-Порядок: создать SurfaceView, получить SurfaceHolder и добавить колбэк SurfaceHolder.Callback.
-
-В surfaceCreated() открыть камеру Camera.open(), установить setPreviewDisplay(holder).
-
-В surfaceChanged() запустить startPreview().
-
-В surfaceDestroyed() остановить превью и освободить камеру release(). Обязательно объявить разрешение CAMERA и запросить его во время выполнения.
-
-### 7. Что произойдёт, если попытаться использовать опасное разрешение без его запроса во время выполнения на Android 6.0+?
-
-Будет выброшено исключение SecurityException, и приложение аварийно завершится (краш). Поэтому перед выполнением операции, требующей опасного разрешения, нужно обязательно проверить и при необходимости запросить его.
-
-### 8. Как проверить, есть ли у приложения определённое разрешение в данный момент?
-
-Вызвать ContextCompat.checkSelfPermission(context, Manifest.permission.ИМЯ_РАЗРЕШЕНИЯ) и сравнить результат с PackageManager.PERMISSION_GRANTED. Например:
+**Рисунок 4** — Загрузка изображения из интернета с отображением прогресса
+Добавлено разрешение INTERNET в манифест. Реализована загрузка изображения по URL в фоновом потоке с имитацией прогресса (обновление ProgressBar). После загрузки картинка устанавливается в ImageView.
+Фрагмент кода:
 ```
-if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-        == PackageManager.PERMISSION_GRANTED) {
-    // разрешение есть
-} else {
-    // нужно запросить
+private Bitmap loadImage(String urlString) throws IOException {
+    URL url = new URL(urlString);
+    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    conn.setDoInput(true);
+    conn.connect();
+    return BitmapFactory.decodeStream(conn.getInputStream());
 }
-```
 
+btnLoadImage.setOnClickListener(v -> {
+    progressBar.setVisibility(View.VISIBLE);
+    new Thread(() -> {
+        try {
+            for (int i = 0; i <= 100; i += 10) {
+                Thread.sleep(200);
+                final int progress = i;
+                runOnUiThread(() -> progressBar.setProgress(progress));
+            }
+            Bitmap bitmap = loadImage("https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png");
+            runOnUiThread(() -> {
+                imageView.setImageBitmap(bitmap);
+                progressBar.setVisibility(View.GONE);
+            });
+        } catch (Exception e) {
+            runOnUiThread(() -> {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(MainActivity.this, "Ошибка загрузки", Toast.LENGTH_SHORT).show();
+            });
+        }
+    }).start();
+});
+```
+## Индивидуальное задание
+
+Тема: «Помощник преподавателя» – фоновые вычисления и загрузка изображений.
+Вариант: В одномерном массиве вещественных чисел вычислить:
+а) минимальный по модулю элемент;
+б) сумму модулей элементов, расположенных после первого элемента, равного нулю.
+Дополнительно: загрузить несколько изображений из сети с отображением общего прогресса.
+
+Работа выполнена в отдельной активности IndividualActivity.
+
+Часть 1. Вычисления в фоновом потоке
+Генерация массива случайных вещественных чисел заданного размера, расчёт требуемых характеристик и обновление индикатора прогресса выполняются в отдельном потоке. Для возврата результатов используется runOnUiThread().
+```
+new Thread(() -> {
+    double[] array = new double[size];
+    Random random = new Random();
+    for (int i = 0; i < size; i++) {
+        array[i] = (random.nextDouble() * 20) - 10; // [-10, 10)
+        Thread.sleep(20); // имитация длительной работы
+        final int progress = (i + 1) * 100 / size;
+        runOnUiThread(() -> progressBar.setProgress(progress));
+    }
+
+    // Минимальный по модулю элемент
+    double minAbs = Math.abs(array[0]);
+    for (double v : array) {
+        double abs = Math.abs(v);
+        if (abs < minAbs) minAbs = abs;
+    }
+
+    // Сумма модулей после первого нуля
+    double sum = 0.0;
+    boolean foundZero = false;
+    for (double v : array) {
+        if (foundZero) sum += Math.abs(v);
+        else if (v == 0.0) foundZero = true;
+    }
+
+    final double finalMin = minAbs;
+    final double finalSum = sum;
+    runOnUiThread(() -> {
+        progressBar.setVisibility(View.GONE);
+        textResult.setText("Минимум по модулю: " + finalMin +
+                           "\nСумма после нуля: " + (foundZero ? finalSum : 0));
+    });
+}).start();
+```
+Часть 2. Загрузка изображений с прогрессом
+Изображения (5 штук) загружаются последовательно из заранее заданных URL. Каждое успешно загруженное изображение сразу добавляется в LinearLayout как новый ImageView. Общий прогресс (ProgressBar) показывает долю загруженных изображений.
+```
+new Thread(() -> {
+    String[] urls = {"https://picsum.photos/id/1/200/200", ...};
+    for (int i = 0; i < urls.length; i++) {
+        Bitmap bitmap = loadImage(urls[i]); // HttpURLConnection, BitmapFactory
+        runOnUiThread(() -> {
+            ImageView iv = new ImageView(context);
+            iv.setImageBitmap(bitmap);
+            imagesContainer.addView(iv);
+        });
+        int progress = (i + 1) * 100 / urls.length;
+        runOnUiThread(() -> progressImages.setProgress(progress));
+        Thread.sleep(300);
+    }
+    runOnUiThread(() -> progressImages.setVisibility(View.GONE));
+}).start();
+```
+![](media/5.png)
+
+**Рисунок 5** — Индивидуальное задание
